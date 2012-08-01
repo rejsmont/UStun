@@ -28,7 +28,7 @@
 
 enum ctrlCommand
 {
-  NOCMD, GETINFO, SETVERBOSE, QUIT, GETCONNTRACKS, FLUSHCONNTRACKS, DELETECONNTRACK
+  NOCMD, GETINFO, SETVERBOSE, QUIT, GETCONNTRACKS, FLUSHCONNTRACKS, DELETECONNTRACK, DESTROY
 };
 
 struct ctrlMem
@@ -81,7 +81,7 @@ int destroyCtrlSpace();
  *
  * @return int                    0 if no error, -1 if errors
  */
-int bindToCtrlSpace(void);
+int bindToCtrlSpace(key_t shm_id);
 
 #endif // CTRL_H_
 

@@ -27,6 +27,7 @@
 #ifdef SOURCE_usctrl
 enum ctrlCommand command;
 int param;
+int pid;
 #else
 extern enum ctrlCommand command;
 #endif

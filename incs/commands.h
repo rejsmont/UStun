@@ -45,57 +45,61 @@ struct fwRule* getRuleDescription(void);
 /**
  * Append a rule to the given chain
  */
-void cmdAppend(void);
+int cmdAppend(void);
 
 /**
  * Delete a rule from the given chain
  */
-void cmdDelete(void);
+int cmdDelete(void);
 
 /**
  * Insert a rule to the given chain at the given position
  */
-void cmdInsert(void);
+int cmdInsert(void);
 
 /**
  * Replace a rule from the given chain
  */
-void cmdReplace(void);
+int cmdReplace(void);
 
 /**
  * List the rules (if given, just from given chain)
  */
-void cmdList(void);
+int cmdList(void);
 
 /**
  * Flush all rules (if given, just from given chain)
  */
-void cmdFlush(void);
+int cmdFlush(void);
 
 /**
  * Zeros the paket count (if given, just from given chain)
  */
-void cmdZero(void);
+int cmdZero(void);
 
 /**
  * Set the policy for the given chain
  */
-void cmdPolicy(void);
+int cmdPolicy(void);
 
 /**
  * Create a new chain
  */
-void cmdNewChain(void);
+int cmdNewChain(void);
 
 /**
- * Delete the given chain
+ * Delete chain(s)
  */
-void cmdDeleteChain(void);
+int cmdDeleteChain(void);
+
+/**
+ * Delete a given chain
+ */
+int cmdDeleteChainX(void);
 
 /**
  * Rename the given chain
  */
-void cmdRenameChain(void);
+int cmdRenameChain(void);
 
 #endif // COMMANDS_H_
-

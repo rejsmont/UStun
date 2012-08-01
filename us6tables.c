@@ -104,7 +104,7 @@ void handleOptions(int argc, char **argv)
 
   command = NOCMD;
   nOptions = 0;
-  bzero(chain, 20);
+  bzero(chain, 50);
 
   while(!stop)
   {
@@ -121,7 +121,7 @@ void handleOptions(int argc, char **argv)
                                               {"zero", optional_argument, 0, 'Z' },
                                               {"policy", required_argument, 0, 'P' },
                                               {"new", required_argument, 0, 'N' },
-                                              {"delete-chain", required_argument, 0, 'X' },
+                                              {"delete-chain", optional_argument, 0, 'X' },
                                               {"rename-chain", required_argument, 0, 'E' },
                                               {"numeric", no_argument , 0, 'n' },
                                               {"verbose", no_argument , 0, 'v' },
@@ -129,7 +129,7 @@ void handleOptions(int argc, char **argv)
                                               {"exact", no_argument , 0, 'x' },
                                               {0, 0, 0, 0}
                                           };
-    c = getopt_long(argc, argv, "hVA:D:I:R:L::F::Z::P:N:X:E:nvqx", long_options, &option_index);
+    c = getopt_long(argc, argv, "hVA:D:I:R:L::F::Z::P:N:X::E:nvqx", long_options, &option_index);
     if(c == -1)
       break;
 
@@ -154,6 +154,7 @@ void handleOptions(int argc, char **argv)
         command = DELETE;
         paramIndex = optind;
         strcpy(chain, optarg);
+        stop = 1;
       break;
       case 'I':
         command = INSERT;
@@ -203,7 +204,8 @@ void handleOptions(int argc, char **argv)
       case 'X':
         command = DELETECHAIN;
         paramIndex = optind;
-        strcpy(chain, optarg);
+        if(argv[optind] != NULL)
+          strcpy(chain, argv[optind]);
       break;
       case 'E':
         command = RENAMECHAIN;
@@ -239,50 +241,56 @@ void handleOptions(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+  int error = 0;
+
   handleOptions(argc, argv);
 
   if(command != NOCMD)
   {
-// Allocate memory for the firewall rules
-    if(bindToRulesSpace() != 0)
-      exit(-1);
+    if(bindToRulesSpace(SHM_ID) != 0)
+    {
+      if(createRulesSpace(SHM_ID) != 0)
+      {
+        exit(-1);
+      }
+    }
 
     prgArgv = argv;
     prgArgc = argc;
     switch(command)
     {
       case APPEND:
-        cmdAppend();
+        error = cmdAppend();
       break;
       case DELETE:
-        cmdDelete();
+        error = cmdDelete();
       break;
       case INSERT:
-        cmdInsert();
+        error = cmdInsert();
       break;
       case REPLACE:
-        cmdReplace();
+        error = cmdReplace();
       break;
       case LIST:
-        cmdList();
+        error = cmdList();
       break;
       case FLUSH:
-        cmdFlush();
+        error = cmdFlush();
       break;
       case ZERO:
-        cmdZero();
+        error = cmdZero();
       break;
       case POLICY:
-        cmdPolicy();
+        error = cmdPolicy();
       break;
       case NEWCHAIN:
-        cmdNewChain();
+        error = cmdNewChain();
       break;
       case DELETECHAIN:
-        cmdDeleteChain();
+        error = cmdDeleteChain();
       break;
       case RENAMECHAIN:
-        cmdRenameChain();
+        error = cmdRenameChain();
       break;
       default:
       break;
@@ -299,5 +307,5 @@ int main(int argc, char **argv)
     exit(2);
   }
 
-  return 0;
+  return error;
 }

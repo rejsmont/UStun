@@ -54,14 +54,16 @@ void ctrl(void *args)
   char ipSrc[INET6_ADDRSTRLEN], ipDst[INET6_ADDRSTRLEN], st[20];
   bool found;
   struct tm *localTime;
+  int shm_id;
 
   sockv6 = (*(struct threadArgs *)args).sockv6;
   tun = (*(struct threadArgs *)args).tun;
   localIP = (*(struct threadArgs *)args).localIP;
   remoteIP = (*(struct threadArgs *)args).remoteIP;
   tunMode = (*(struct threadArgs *)args).tunMode;
+  shm_id = (*(struct threadArgs *)args).pid;
 
-  if((shmctrlid = shmget(SHM_CTRLID, sizeof(struct ctrlMem), IPC_CREAT | 0600)) < 0)
+  if((shmctrlid = shmget(shm_id, sizeof(struct ctrlMem), IPC_CREAT | 0600)) < 0)
   {
     printf("Unable to create shared memory segment\n");
     return;
@@ -288,10 +290,10 @@ int destroyCtrlSpace()
  *
  * @return int                    0 if no error, -1 if errors
  */
-int bindToCtrlSpace()
+int bindToCtrlSpace(key_t shm_id)
 {
   // Create the segment.
-  if((shmctrlid = shmget(SHM_CTRLID, sizeof(struct ctrlMem), 0600)) < 0)
+  if((shmctrlid = shmget(shm_id, sizeof(struct ctrlMem), 0600)) < 0)
   {
     printf("Unable to get shared memory segment\n");
     return(-1);

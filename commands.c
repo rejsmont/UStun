@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -45,8 +46,11 @@
 int isNumeric(char *s)
 {
   char *p;
+  int val;
 
-  if(strtol(s, &p, 10) == EINVAL)
+  val = strtol(s, &p, 10);
+
+  if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) || (errno != 0 && val == 0))
     return 0;
   if(p == s)
     return 0;
@@ -71,6 +75,7 @@ struct fwRule *getRuleDescription(void)
   rule = malloc(sizeof(struct fwRule));
   memset(rule, 0, sizeof(struct fwRule));
   rule->extraChainNumber = -1;
+
   for(l = paramIndex; l < prgArgc; l++)
   {
     if(strcmp(prgArgv[l], "-p") == 0 || strcmp(prgArgv[l], "--protocol") == 0)
@@ -85,7 +90,7 @@ struct fwRule *getRuleDescription(void)
         rule->proto = proto->p_proto;
       else
       {
-        printf("us6tables: unknown protocol `%s' specified\n", prgArgv[l + 1]);
+        fprintf(stderr,"us6tables: unknown protocol `%s' specified\n", prgArgv[l + 1]);
         return NULL;
       }
       l++;
@@ -123,7 +128,7 @@ struct fwRule *getRuleDescription(void)
         hints.ai_socktype = SOCK_STREAM;
         if(getaddrinfo(addr, NULL, &hints, &servinfo) != 0)
         {
-          printf("us6tables: error by parsing `%s' (not IPv6 address?)\n", addr);
+          fprintf(stderr,"us6tables: error by parsing `%s' (not IPv6 address?)\n", addr);
           return NULL;
         }
         else
@@ -166,7 +171,7 @@ struct fwRule *getRuleDescription(void)
           rule->srcPort = ntohs(serv->s_port);
         else
         {
-          printf("us6tables: invalid port/service `%s' specified\n", prgArgv[l + 1]);
+          fprintf(stderr,"us6tables: invalid port/service `%s' specified\n", prgArgv[l + 1]);
           return NULL;
         }
       }
@@ -195,7 +200,7 @@ struct fwRule *getRuleDescription(void)
         hints.ai_socktype = SOCK_STREAM;
         if(getaddrinfo(addr, NULL, &hints, &servinfo) != 0)
         {
-          printf("us6tables: error by parsing `%s' (not IPv6 address?)\n", addr);
+          fprintf(stderr,"us6tables: error by parsing `%s' (not IPv6 address?)\n", addr);
           return NULL;
         }
         else
@@ -227,7 +232,7 @@ struct fwRule *getRuleDescription(void)
           rule->dstPort = ntohs(serv->s_port);
         else
         {
-          printf("us6tables: invalid port/service `%s' specified\n", prgArgv[l + 1]);
+          fprintf(stderr,"us6tables: invalid port/service `%s' specified\n", prgArgv[l + 1]);
           return NULL;
         }
       }
@@ -243,6 +248,8 @@ struct fwRule *getRuleDescription(void)
         rule->action = DROP;
       else if(strcmp(prgArgv[l + 1], "LOG") == 0)
         rule->action = LOG;
+      else if(strcmp(prgArgv[l + 1], "RETURN") == 0)
+        rule->action = RETURN;
       else
       {
         for(f = k = 0; k < shmFW->nChains; k++)
@@ -253,7 +260,7 @@ struct fwRule *getRuleDescription(void)
           }
         if(f == 0)
         {
-          printf("us6tables: unknown target `%s'\n", prgArgv[l + 1]);
+          fprintf(stderr,"us6tables: unknown target `%s'\n", prgArgv[l + 1]);
           return NULL;
         }
       }
@@ -269,7 +276,7 @@ struct fwRule *getRuleDescription(void)
           {
             if((k + 1) >= prgArgc)
             {
-              printf("us6tables: Unknown arg `--comment'\n");
+              fprintf(stderr,"us6tables: Unknown arg `--comment'\n");
               return NULL;
             }
             strcpy(rule->comment, prgArgv[k + 1]);
@@ -280,7 +287,7 @@ struct fwRule *getRuleDescription(void)
         }
         if(f == 0)
         {
-          printf("us6tables: COMMENT match: You must specify `--comment'\n");
+          fprintf(stderr,"us6tables: COMMENT match: You must specify `--comment'\n");
           return NULL;
         }
       }
@@ -292,7 +299,7 @@ struct fwRule *getRuleDescription(void)
           {
             if((k + 1) >= prgArgc)
             {
-              printf("us6tables: Unknown arg `--state'\n");
+              fprintf(stderr,"us6tables: Unknown arg `--state'\n");
               return NULL;
             }
             t = strtok(prgArgv[k + 1], ",");
@@ -316,7 +323,7 @@ struct fwRule *getRuleDescription(void)
         }
         if(f == 0)
         {
-          printf("us6tables: You must specify `--state'\n");
+          fprintf(stderr,"us6tables: You must specify `--state'\n");
           return NULL;
         }
       }
@@ -328,7 +335,7 @@ struct fwRule *getRuleDescription(void)
           {
             if((k + 1) >= prgArgc)
             {
-              printf("us6tables: Unknown arg `--source-ports'\n");
+              fprintf(stderr,"us6tables: Unknown arg `--source-ports'\n");
               return NULL;
             }
             if(prgArgv[k + 1][0] == '!')
@@ -350,7 +357,7 @@ struct fwRule *getRuleDescription(void)
                     rule->srcMultiPorts.ports[rule->srcMultiPorts.nPorts++] = ntohs(serv->s_port);
                   else
                   {
-                    printf("us6tables: invalid port/service `%s' specified\n", t);
+                    fprintf(stderr,"us6tables: invalid port/service `%s' specified\n", t);
                     return NULL;
                   }
                 }
@@ -365,7 +372,7 @@ struct fwRule *getRuleDescription(void)
           {
             if((k + 1) >= prgArgc)
             {
-              printf("us6tables: Unknown arg `--destination-ports'\n");
+              fprintf(stderr,"us6tables: Unknown arg `--destination-ports'\n");
               return NULL;
             }
             if(prgArgv[k + 1][0] == '!')
@@ -387,7 +394,7 @@ struct fwRule *getRuleDescription(void)
                     rule->dstMultiPorts.ports[rule->dstMultiPorts.nPorts++] = ntohs(serv->s_port);
                   else
                   {
-                    printf("us6tables: invalid port/service `%s' specified\n", t);
+                    fprintf(stderr,"us6tables: invalid port/service `%s' specified\n", t);
                     return NULL;
                   }
                 }
@@ -402,7 +409,7 @@ struct fwRule *getRuleDescription(void)
           {
             if((k + 1) >= prgArgc)
             {
-              printf("us6tables: Unknown arg `--ports'\n");
+              fprintf(stderr,"us6tables: Unknown arg `--ports'\n");
               return NULL;
             }
             if(prgArgv[k + 1][0] == '!')
@@ -424,7 +431,7 @@ struct fwRule *getRuleDescription(void)
                     rule->srcMultiPorts.ports[rule->srcMultiPorts.nPorts++] = rule->dstMultiPorts.ports[rule->dstMultiPorts.nPorts++] = ntohs(serv->s_port);
                   else
                   {
-                    printf("us6tables: invalid port/service `%s' specified\n", t);
+                    fprintf(stderr,"us6tables: invalid port/service `%s' specified\n", t);
                     return NULL;
                   }
                 }
@@ -438,27 +445,27 @@ struct fwRule *getRuleDescription(void)
         }
         if(f == 0)
         {
-          printf("us6tables: You must specify `--ports | --destination-ports | --source-ports'\n");
+          fprintf(stderr,"us6tables: You must specify `--ports | --destination-ports | --source-ports'\n");
           return NULL;
         }
       }
       else
       {
-        printf("us6tables: unknown module `%s'\n", prgArgv[l + 1]);
+        fprintf(stderr,"us6tables: unknown module `%s'\n", prgArgv[l + 1]);
         return NULL;
       }
       l = endMatch + 1;
     }
     else
     {
-      printf("us6tables: unrecognized parameter `%s'\n", prgArgv[l]);
+      fprintf(stderr,"us6tables: unrecognized parameter `%s'\n", prgArgv[l]);
       return NULL;
     }
   }
 
   if((rule->action == NONE) && (rule->extraChainNumber == -1))
   {
-    printf("us6tables: no action specified\n");
+    fprintf(stderr,"us6tables: no action specified\n");
     return NULL;
   }
   return rule;
@@ -467,7 +474,7 @@ struct fwRule *getRuleDescription(void)
 /**
  * Append a rule to the given chain
  */
-void cmdAppend()
+int cmdAppend()
 {
   int nR;
   struct chain *c = NULL;
@@ -475,16 +482,20 @@ void cmdAppend()
 
   if(strcmp(chain, "") == 0)
   {
-    printf("us6tables: -A requires a chain\n");
-    return;
+    fprintf(stderr,"us6tables: -A requires a chain\n");
+    return 5;
   }
   for(nR = 0; nR < shmFW->nChains; nR++)
     if(strcmp(chain, shmFW->chains[nR].name) == 0)
       c = &shmFW->chains[nR];
   if(c == NULL)
   {
-    printf("us6tables: Bad built-in chain name\n");
-    return;
+    if(strcmp(chain, "FORWARD") != 0) {
+      fprintf(stderr,"us6tables: Bad built-in chain name\n");
+      return 5;
+    } else {
+      return 0;
+    }
   }
   if(c->nRules < MAX_RULES_NUM)
   {
@@ -494,92 +505,140 @@ void cmdAppend()
       memcpy(&c->rules[c->nRules], rule, sizeof(struct fwRule));
       c->nRules++;
       free(rule);
+    } else {
+      return 5;
     }
   }
   else
   {
-    printf("us6tables: No space left in memory\n");
-    return;
+    fprintf(stderr,"us6tables: No space left in memory\n");
+    return 5;
   }
+  return 0;
 }
 
 /**
  * Delete a rule from the given chain
  */
-void cmdDelete()
+int cmdDelete()
 {
-  int nR, l;
+  int nC, nR, l;
   struct chain *c = NULL;
+  char *e;
+  struct fwRule *rule;
 
-  if(strcmp(chain, "") == 0 || prgArgv[paramIndex] == NULL)
+  if(strcmp(chain, "") == 0)
   {
-    printf("us6tables: -D requires a chain and a line number\n");
-    return;
+    fprintf(stderr,"us6tables: -D requires a chain\n");
+    return 1;
   }
-  for(nR = 0; nR < shmFW->nChains; nR++)
-    if(strcmp(chain, shmFW->chains[nR].name) == 0)
-      c = &shmFW->chains[nR];
+  for(nC = 0; nC < shmFW->nChains; nC++)
+    if(strcmp(chain, shmFW->chains[nC].name) == 0)
+      c = &shmFW->chains[nC];
   if(c == NULL)
   {
-    printf("us6tables: Bad built-in chain name\n");
-    return;
+    if(strcmp(chain, "FORWARD") != 0) {
+      fprintf(stderr,"us6tables: Bad built-in chain name\n");
+      return 5;
+    } else {
+      return 0;
+    }
   }
-  l = atoi(prgArgv[paramIndex]) - 1;   // Rules saved 0-based, but displayed 1-based
+
+  l = strtol(prgArgv[paramIndex],&e,10) - 1;
+  if ((errno != 0 && l == -1)||(prgArgv[paramIndex] == e)) {
+    rule = getRuleDescription();
+    if (rule != NULL)
+      for(nR = 0; nR < c->nRules; nR++) {
+        if (memcmp(&c->rules[nR], rule, sizeof(struct fwRule)) == 0) {
+          l = nR;
+          break;
+        }
+      }
+    else {
+      fprintf(stderr,"us6tables: Bad rule (does a matching rule exist in that chain?).\n");
+      return 1;
+    }
+  }
+  if (l >= c->nRules) {
+    fprintf(stderr,"us6tables: Index of deletion too big.\n");
+    return 1;
+  }
+  if (l <= 0) {
+    fprintf(stderr,"us6tables: Invalid rule number `%d'.\n",l);
+    return 1;
+  }
   for(nR = l; nR < c->nRules - 1; nR++)
     memcpy(&c->rules[nR], &c->rules[nR + 1], sizeof(struct fwRule));
   memset(&c->rules[c->nRules], 0, sizeof(struct fwRule));
   c->nRules--;
+  return 0;
 }
 
 /**
  * Insert a rule to the given chain at the given position
  */
-void cmdInsert()
+int cmdInsert()
 {
   int nR, l;
   struct chain *c = NULL;
+  char *e;
   struct fwRule *rule;
 
-  if(strcmp(chain, "") == 0 || prgArgv[paramIndex] == NULL)
+  if(strcmp(chain, "") == 0)
   {
-    printf("us6tables: -I requires a chain and a line number\n");
-    return;
+    fprintf(stderr,"us6tables: -I requires a chain\n");
+    return 5;
   }
   for(nR = 0; nR < shmFW->nChains; nR++)
     if(strcmp(chain, shmFW->chains[nR].name) == 0)
       c = &shmFW->chains[nR];
   if(c == NULL)
   {
-    printf("us6tables: Bad built-in chain name\n");
-    return;
+    if(strcmp(chain, "FORWARD") != 0) {
+      fprintf(stderr,"us6tables: Bad built-in chain name\n");
+      return 5;
+    } else {
+      return 0;
+    }
   }
-  nR = atoi(prgArgv[paramIndex]) - 1;   // Rules saved 0-based, but displayed 1-based
-  if(nR > c->nRules)
+
+  nR = strtol(prgArgv[paramIndex],&e,10) - 1;
+  if ((errno != 0 && nR == -1)||(prgArgv[paramIndex] == e))
+    nR = 0;
+  else
+    paramIndex++;
+
+  if((nR > c->nRules)||(nR < 0))
   {
-    printf("us6tables: Bad rule number\n");
-    return;
+    fprintf(stderr,"us6tables: Bad rule number\n");
+    return 1;
   }
   if((c->nRules + 1) >= MAX_RULES_NUM)
   {
-    printf("us6tables: No space left in memory\n");
-    return;
+    fprintf(stderr,"us6tables: No space left in memory\n");
+    return 1;
   }
-  paramIndex++;
+
   rule = getRuleDescription();
-  if(rule != NULL)
+  if((rule != NULL)&&(rule->action != RETURN))
   {
-    for(l = nR + 1; l < c->nRules; l++)
-      memcpy(&c->rules[l], &c->rules[l - 1], sizeof(struct fwRule));
+    for(l = c->nRules - 1; l >= nR; l--) {
+      memcpy(&c->rules[l + 1], &c->rules[l], sizeof(struct fwRule));
+    }
     memcpy(&c->rules[nR], rule, sizeof(struct fwRule));
     c->nRules++;
     free(rule);
+  } else {
+    return 1;
   }
+  return 0;
 }
 
 /**
  * Replace a rule from the given chain
  */
-void cmdReplace()
+int cmdReplace()
 {
   int nR;
   struct chain *c = NULL;
@@ -587,22 +646,26 @@ void cmdReplace()
 
   if(strcmp(chain, "") == 0 || prgArgv[paramIndex] == NULL)
   {
-    printf("us6tables: -R requires a chain and a line number\n");
-    return;
+    fprintf(stderr,"us6tables: -R requires a chain and a line number\n");
+    return 5;
   }
   for(nR = 0; nR < shmFW->nChains; nR++)
     if(strcmp(chain, shmFW->chains[nR].name) == 0)
       c = &shmFW->chains[nR];
   if(c == NULL)
   {
-    printf("us6tables: Bad built-in chain name\n");
-    return;
+    if(strcmp(chain, "FORWARD") != 0) {
+      fprintf(stderr,"us6tables: Bad built-in chain name\n");
+      return 5;
+    } else {
+      return 0;
+    }
   }
   nR = atoi(prgArgv[paramIndex]) - 1;   // Rules saved 0-based, but displayed 1-based
   if(nR > c->nRules)
   {
-    printf("us6tables: Bad rule number\n");
-    return;
+    fprintf(stderr,"us6tables: Bad rule number\n");
+    return 5;
   }
   paramIndex++;
   rule = getRuleDescription();
@@ -610,13 +673,16 @@ void cmdReplace()
   {
     memcpy(&c->rules[nR], rule, sizeof(struct fwRule));
     free(rule);
+  } else {
+    return 5;
   }
+  return 0;
 }
 
 /**
  * List the rules (if given, just from given chain)
  */
-void cmdList()
+int cmdList()
 {
   char str[INET6_ADDRSTRLEN + 5], ip[255];
   int l, k, mp, nR, nRef, displayLineNo = 0, verbose = 0, numeric = 0, exact = 0;
@@ -631,8 +697,8 @@ void cmdList()
         l = nR;
     if(l == -1)
     {
-      printf("us6tables: No chain/target/match by that name\n");
-      return;
+      fprintf(stderr,"us6tables: No chain/target/match by that name\n");
+      return 1;
     }
   }
   for(l = 0; l < nOptions; l++)
@@ -674,9 +740,10 @@ void cmdList()
           for(k = 0; k < shmFW->chains[l].nRules; k++)
             if(shmFW->chains[l].rules[k].extraChainNumber == nR)
               nRef++;
-        printf("Chain %s (%d references)\n",
+        printf("Chain %s (%d references, %d rules)\n",
           shmFW->chains[nR].name,
-          nRef);
+          nRef,
+          shmFW->chains[nR].nRules);
       }
       if(displayLineNo)
         printf("num  ");
@@ -898,12 +965,13 @@ void cmdList()
       }
       printf("\n");
     }
+  return 0;
 }
 
 /**
  * Flush all rules (if given, just from given chain)
  */
-void cmdFlush()
+int cmdFlush()
 {
   int l, nR;
 
@@ -914,8 +982,8 @@ void cmdFlush()
         l = nR;
     if(l == -1)
     {
-      printf("us6tables: No chain/target/match by that name\n");
-      return;
+      fprintf(stderr,"us6tables: No chain/target/match by that name\n");
+      return 5;
     }
   }
   for(nR = 0; nR < shmFW->nChains; nR++)
@@ -924,12 +992,13 @@ void cmdFlush()
       shmFW->chains[nR].nRules = 0;
       memset(shmFW->chains[nR].rules, 0, sizeof(struct fwRule) * MAX_RULES_NUM);
     }
+  return 0;
 }
 
 /**
  * Zeros the paket count (if given, just from given chain)
  */
-void cmdZero()
+int cmdZero()
 {
   int l, nR;
 
@@ -940,8 +1009,8 @@ void cmdZero()
         l = nR;
     if(l == -1)
     {
-      printf("us6tables: No chain/target/match by that name\n");
-      return;
+      fprintf(stderr,"us6tables: No chain/target/match by that name\n");
+      return 5;
     }
   }
   for(nR = 0; nR < shmFW->nChains; nR++)
@@ -950,20 +1019,21 @@ void cmdZero()
       shmFW->chains[nR].nPackets = 0;
       shmFW->chains[nR].nBytes = 0;
     }
+  return 0;
 }
 
 /**
  * Set the policy for the given chain
  */
-void cmdPolicy()
+int cmdPolicy()
 {
   int nR;
   struct chain *c = NULL;
 
   if(strcmp(chain, "") == 0 || prgArgv[paramIndex] == NULL)
   {
-    printf("us6tables: -P requires a chain and a policy\n");
-    return;
+    fprintf(stderr,"us6tables: -P requires a chain and a policy\n");
+    return 5;
   }
   if(strlen(chain) != 0)
   {
@@ -972,8 +1042,12 @@ void cmdPolicy()
         c = &shmFW->chains[nR];
     if(c == NULL)
     {
-      printf("us6tables: Bad built-in chain name\n");
-      return;
+      if(strcmp(chain, "FORWARD") != 0) {
+        fprintf(stderr,"us6tables: Bad built-in chain name\n");
+        return 5;
+      } else {
+        return 0;
+      }
     }
   }
 
@@ -985,59 +1059,65 @@ void cmdPolicy()
       c->policy = DROP;
     else if(strcmp(prgArgv[paramIndex], "REJECT") == 0)
       c->policy = REJECT;
-    else
-      printf("us6tables: Bad policy name\n");
+    else {
+      fprintf(stderr,"us6tables: Bad policy name\n");
+      return 5;
+    }
   }
+  
+  return 0;
 }
 
 /**
  * Create a new chain
  */
-void cmdNewChain()
+int cmdNewChain()
 {
+  int nR;
   struct chain c;
+  struct chain *e = NULL;
 
   if(strcmp(chain, "") == 0)
   {
-    printf("us6tables: -N requires a chain\n");
-    return;
+    fprintf(stderr,"us6tables: -N requires a chain\n");
+    return 5;
   }
   if(strlen(chain) != 0)
   {
-    memset(&c, 0, sizeof(struct chain));
-    strcpy(c.name, chain);
-    memcpy(&shmFW->chains[shmFW->nChains++], &c, sizeof(struct chain));
+    for(nR = 0; nR < shmFW->nChains; nR++)
+      if(strcmp(chain, shmFW->chains[nR].name) == 0)
+        e = &shmFW->chains[nR];
+    if(e != NULL)
+    {
+      fprintf(stderr,"us6tables: Chain already exists.\n");
+      return 5;
+    }
+    else
+    {
+      memset(&c, 0, sizeof(struct chain));
+      strcpy(c.name, chain);
+      memcpy(&shmFW->chains[shmFW->nChains++], &c, sizeof(struct chain));
+    }
   }
+  
+  return 0;
 }
 
 /**
  * Delete the given chain
  */
-void cmdDeleteChain()
+int cmdDeleteChain()
 {
   int nR, l, k, nRef, nC;
 
-  if(strcmp(chain, "") == 0)
-  {
-    printf("us6tables: -X requires the name of the chain\n");
-    return;
-  }
-  if(strlen(chain) != 0)
-  {
-    for(nC = -1, nR = 0; nR < shmFW->nChains; nR++)
-      if(strcmp(chain, shmFW->chains[nR].name) == 0)
-        nC = nR;
-    if(nC == -1)
+  for(nC = -1, nR = 0; nR < shmFW->nChains; nR++)
+    if((strcmp(chain, shmFW->chains[nR].name) == 0) || ((strlen(chain) == 0)&&(strcmp("INPUT", shmFW->chains[nR].name) != 0)&&(strcmp("OUTPUT", shmFW->chains[nR].name) != 0)))
     {
-      printf("us6tables: Bad built-in chain name\n");
-      return;
-    }
-    else
-    {
+      nC = nR;
       if(shmFW->chains[nC].nRules != 0)
       {
-        printf("us6tables: Directory not empty\n");
-        return;
+        fprintf(stderr,"us6tables: Directory not empty\n");
+        return 5;
       }
       else
       {
@@ -1047,44 +1127,53 @@ void cmdDeleteChain()
               nRef++;
         if(nRef != 0)
         {
-          printf("us6tables: Too many links\n");
-          return;
+          fprintf(stderr,"us6tables: Too many links\n");
+          return 5;
         }
         else
         {
           for(l = nC; l < shmFW->nChains - 1; l++)
             memcpy(&shmFW->chains[l], &shmFW->chains[l + 1], sizeof(struct chain));
           memset(&shmFW->chains[shmFW->nChains--], 0, sizeof(struct chain));
+          nR--;
         }
       }
     }
+  
+  if(nC == -1)
+  {
+    fprintf(stderr,"us6tables: Bad built-in chain name\n");
+    return 5;
   }
+  return 0;
 }
 
 /**
  * Rename the given chain
  */
-void cmdRenameChain()
+int cmdRenameChain()
 {
   int nR;
   struct chain *c = NULL;
 
   if(strcmp(chain, "") == 0 || prgArgv[paramIndex] == NULL)
   {
-    printf("us6tables: -E requires the old and the new name of the chain\n");
-    return;
+    fprintf(stderr,"us6tables: -E requires the old and the new name of the chain\n");
+    return 5;
   }
   if(strlen(chain) != 0)
   {
     for(nR = 0; nR < shmFW->nChains; nR++)
       if(strcmp(chain, shmFW->chains[nR].name) == 0)
         c = &shmFW->chains[nR];
-    if(c == NULL)
-    {
-      printf("us6tables: Bad built-in chain name\n");
-      return;
-    }
-    else
-      strcpy(c->name, prgArgv[paramIndex]);
+      if(c == NULL)
+      {
+        fprintf(stderr,"us6tables: Bad built-in chain name\n");
+        return 5;
+      }
+      else
+        strcpy(c->name, prgArgv[paramIndex]);
   }
+  return 0;
 }
+

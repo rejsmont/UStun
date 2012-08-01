@@ -266,7 +266,7 @@ static void signalHandler(int signal)
 /**
  * Start the program as daemon
  */
-void daemonize()
+void daemonize(void)
 {
   pid_t pid, sid;
   FILE *fp;
@@ -304,6 +304,8 @@ int main(int argc, char **argv)
   pthread_t id6to4, id4to6, idCtrl;
   int dontblock = 1;
   char *ipStr;
+  pid_t pid = 0;
+  FILE *fp;
 
   mode = -1;
   strcpy(devname, "");
@@ -385,9 +387,14 @@ int main(int argc, char **argv)
   free(ipStr);
 
 // Allocate memory for the firewall rules
-  if(createRulesSpace() != 0)
-    exit(-1);
-
+  if(bindToRulesSpace(SHM_ID) != 0)
+  {
+    if(createRulesSpace(SHM_ID) != 0)
+    {
+      exit(-1);
+    }
+  }
+  
 // Allocate memory for the established list
   if((conntracks = createCList()) == NULL)
   {
@@ -417,6 +424,13 @@ int main(int argc, char **argv)
 
   if(logTo != STDERR)
     daemonize();
+
+  if ((fp = fopen(pidFile, "r"))) {
+    fscanf(fp, "%d\n", &pid);
+    fclose(fp);
+  }
+  args4to6.pid = pid;
+  args4to6.pid = pid;
 
 // Start the Threads for incoming and outgoing packets
   if(pthread_create(&id6to4, NULL, (void *)io6to4, (void *)&args6to4) != 0)

@@ -41,13 +41,13 @@ int nOptions;
 int paramIndex;
 char **prgArgv;
 int prgArgc;
-char chain[20];
+char chain[50];
 #else
 extern enum commands command;
 extern enum options option[10];
 extern int nOptions;
 extern int paramIndex;
-extern char chain[20];
+extern char chain[50];
 extern char **prgArgv;
 extern int prgArgc;
 #endif

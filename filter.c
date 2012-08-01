@@ -35,6 +35,7 @@
 #include "incs/logger.h"
 #include "incs/filter.h"
 #include "incs/state.h"
+#include <errno.h>
 
 /**
  * Check if the connection is allowed
@@ -498,17 +499,17 @@ void sendReject(unsigned char *packet, void *args, int direction)
  *
  * @return int                    0 if no error, -1 if errors
  */
-int createRulesSpace()
+int createRulesSpace(key_t shm_id)
 {
   int l, k;
 
   // Create the segment.
-  if((shmid = shmget(SHM_ID, sizeof(struct firewall), IPC_CREAT | 0600)) < 0)
+
+  if((shmid = shmget(shm_id, sizeof(struct firewall), IPC_CREAT | 0600)) < 0)
   {
     printf("Unable to create shared memory segment\n");
     return(-1);
   }
-
   // Now we attach the segment to our data space.
   if((shmFW = shmat(shmid, NULL, 0)) == (struct firewall *) -1)
   {
@@ -552,9 +553,10 @@ int freeRulesSpace()
  */
 int destroyRulesSpace()
 {
-  logger(LOG_INFO, "main", "Freeing %d bytes for firewall rules", sizeof(struct firewall));
   if(freeRulesSpace() == 0)
-    return shmctl(shmid, IPC_RMID, 0);
+  {
+    return 0;
+  }
   return -1;
 }
 
@@ -563,10 +565,10 @@ int destroyRulesSpace()
  *
  * @return int                    0 if no error, -1 if errors
  */
-int bindToRulesSpace()
+int bindToRulesSpace(key_t shm_id)
 {
   // Create the segment.
-  if((shmid = shmget(SHM_ID, sizeof(struct firewall), 0600)) < 0)
+  if((shmid = shmget(shm_id, sizeof(struct firewall), 0600)) < 0)
   {
     printf("Unable to get shared memory segment\n");
     return(-1);

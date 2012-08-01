@@ -1,5 +1,5 @@
 GCC = /usr/bin/gcc
-LIB = -l pthread
+LIBS = -l pthread
 DEBUG = f
 BASICOPTIONS = -Wall -O2 -s
 ifeq ($(DEBUG),t)

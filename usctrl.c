@@ -29,6 +29,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <arpa/inet.h>
 #include "incs/common.h"
 #include "incs/usctrl.h"
@@ -48,6 +50,8 @@ void printHelp()
   printf("  -c --get-conntracks        Print the connection tracking table\n");
   printf("  -f --flush-conntracks      Flush the connection tracking table\n");
   printf("  -d --delete-conntrack <n>  Delete the given connection from the connection tracking table\n");
+  printf("  -p --pid <pid>             Specify PID of tunnel to control\n");
+  printf("  -D --destroy               Destroy firewall and free its memory\n");
 }
 
 /**
@@ -82,9 +86,11 @@ void handleOptions(int argc, char **argv)
                                               {"get-conntracks", no_argument , 0, 'c' },
                                               {"flush-conntracks", no_argument , 0, 'f' },
                                               {"delete-conntrack", required_argument , 0, 'd' },
+                                              {"pid", required_argument , 0, 'p' },
+                                              {"destroy", no_argument , 0, 'D' },
                                               {0, 0, 0, 0}
                                           };
-    c = getopt_long(argc, argv, "hViv:qcfd:", long_options, &option_index);
+    c = getopt_long(argc, argv, "hViv:qcfd:p:D", long_options, &option_index);
     if(c == -1)
       break;
 
@@ -119,6 +125,13 @@ void handleOptions(int argc, char **argv)
         command = DELETECONNTRACK;
         param = atoi(optarg);
       break;
+      case 'p':
+        pid = atoi(optarg);
+      break;
+      case 'D':
+        command = DESTROY;
+      break;
+
       default:
       break;
     }
@@ -158,13 +171,38 @@ void sendCommand(char *param)
 int main(int argc, char **argv)
 {
   char paramStr[255];
+  int shmid;
+  struct shmid_ds fwshm;
 
   handleOptions(argc, argv);
 
+
   if(command != NOCMD)
   {
-// Allocate memory for the control interface
-    if(bindToCtrlSpace() != 0)
+    if(command == DESTROY) {
+      if((shmid = shmget(SHM_ID, sizeof(struct firewall), 0600)) < 0)
+      {
+        printf("Unable to get shared memory segment\n");
+        return(-1);
+      }
+      if ((shmctl(shmid, IPC_STAT, &fwshm) == 0)&&(fwshm.shm_nattch == 0)) {
+        printf("Freeing %d bytes for firewall rules\n", sizeof(struct firewall));
+        return shmctl(shmid, IPC_RMID, 0);
+      } else {
+        if (fwshm.shm_nattch > 0)
+          printf("There are still %d tunnels attached\n", fwshm.shm_nattch);
+        else
+          printf("Unable to get info aboutshared memory segment\n");
+        return(-1);
+      }
+    }
+
+    if(pid <= 0) {
+      printf("No tunnel PID specified\n");
+      exit(5);
+    }
+
+    if(bindToCtrlSpace(pid) != 0)
       exit(-1);
 
     bzero(paramStr, 255);

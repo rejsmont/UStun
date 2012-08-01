@@ -56,6 +56,7 @@ struct threadArgs
   int localIP, remoteIP;
   int tunMode;
   int fd;
+  int pid;
 };
 
 /**

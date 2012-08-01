@@ -25,8 +25,8 @@
 #define FILTER_H_
 
 #define SHM_ID                    6666
-#define MAX_RULES_NUM             100 // max. 100 Firewall rules
-#define MAX_CHAINS_NUM            20  // max. 20 chains
+#define MAX_RULES_NUM             250 // max. 100 Firewall rules
+#define MAX_CHAINS_NUM            50  // max. 20 chains
 
 #define PKGTYPE_ALL               0   // All protocols
 #define PKGTYPE_ICMP              1   // Internet Control Message Protocol (ICMP)
@@ -41,7 +41,7 @@
 
 enum fwAction
 {
-  NONE, ACCEPT, REJECT, DROP, LOG
+  NONE, ACCEPT, REJECT, DROP, LOG, RETURN
 };
 
 struct ipv6addr
@@ -166,7 +166,7 @@ void sendReject(unsigned char *packet, void *args, int direction);
  *
  * @return int                    0 if no error, -1 if errors
  */
-int createRulesSpace(void);
+int createRulesSpace(key_t shm_id);
 
 /**
  * Free the allocated shared memory for the firewall rules
@@ -187,7 +187,7 @@ int destroyRulesSpace();
  *
  * @return int                    0 if no error, -1 if errors
  */
-int bindToRulesSpace(void);
+int bindToRulesSpace(key_t shm_id);
 
 #endif // FILTER_H_
 
