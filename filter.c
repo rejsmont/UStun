@@ -50,21 +50,24 @@ enum fwAction filter(unsigned char *packet, int length, int direction)
   int lenHeader = 0, l, k, proto;
   char *srcIP, *dstIP, *protoStr;
   uint16_t payloadLength;
-  struct chain *checkChain;
+  struct chain *checkChain, *input, *output;
   char log[4096], log1[255];
   struct in6_addr pkgSrcIP, pkgDstIP;
   int pkgSrcPort, pkgDstPort, pkgProto;
 
+  input = &shmFW->chains[shmFW->input];
+  output = &shmFW->chains[shmFW->output];
+  
   switch(direction)
   {
     case DIR_4TO6:
       lenHeader = 4 * (packet[0] & 0x0f) + 4;
-      checkChain = shmFW->output;
+      checkChain = output;
     break;
     case DIR_6TO4:
     default:
       lenHeader = 4 * (packet[0] & 0x0f);
-      checkChain = shmFW->input;
+      checkChain = input;
     break;
   }
 
@@ -502,6 +505,7 @@ void sendReject(unsigned char *packet, void *args, int direction)
 int createRulesSpace(key_t shm_id)
 {
   int l, k;
+  struct chain *input, *output;
 
   // Create the segment.
 
@@ -522,14 +526,16 @@ int createRulesSpace(key_t shm_id)
   for(l = 0; l < MAX_CHAINS_NUM; l++)
     for(k = 0; k < MAX_RULES_NUM; k++)
       shmFW->chains[l].rules[k].extraChainNumber = -1;
-  shmFW->input = &shmFW->chains[shmFW->nChains++];
-  shmFW->output = &shmFW->chains[shmFW->nChains++];
-  strcpy(shmFW->input->name, "INPUT");
-  strcpy(shmFW->output->name, "OUTPUT");
+  shmFW->input = shmFW->nChains++;
+  shmFW->output = shmFW->nChains++;
+  input = &shmFW->chains[shmFW->input];
+  output = &shmFW->chains[shmFW->output];
+  strcpy(input->name, "INPUT");
+  strcpy(output->name, "OUTPUT");
   // Set default policies (ACCEPT)
-  shmFW->input->policy = shmFW->output->policy = ACCEPT;
+  input->policy = output->policy = ACCEPT;
   // No rules (yet)
-  shmFW->input->nRules = shmFW->output->nRules = 0;
+  input->nRules = output->nRules = 0;
 
   logger(LOG_INFO, "main", "Allocated %d bytes for firewall rules", sizeof(struct firewall));
 

@@ -25,8 +25,8 @@
 #define FILTER_H_
 
 #define SHM_ID                    6666
-#define MAX_RULES_NUM             250 // max. 100 Firewall rules
-#define MAX_CHAINS_NUM            50  // max. 20 chains
+#define MAX_RULES_NUM             250 // max. 250 Firewall rules
+#define MAX_CHAINS_NUM            50  // max. 50 chains
 
 #define PKGTYPE_ALL               0   // All protocols
 #define PKGTYPE_ICMP              1   // Internet Control Message Protocol (ICMP)
@@ -98,7 +98,7 @@ struct chain
 struct firewall
 {
   struct chain chains[MAX_CHAINS_NUM];
-  struct chain *input, *output;
+  int input, output;
   uint8_t nChains;
 };
 

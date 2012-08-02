@@ -242,7 +242,7 @@ void handleOptions(int argc, char **argv)
 int main(int argc, char **argv)
 {
   int error = 0;
-
+  
   handleOptions(argc, argv);
 
   if(command != NOCMD)
@@ -254,7 +254,7 @@ int main(int argc, char **argv)
         exit(-1);
       }
     }
-
+    
     prgArgv = argv;
     prgArgc = argc;
     switch(command)
