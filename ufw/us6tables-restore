@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# This is a quick and dirty script to simulate ip6tables-restore functionality
+# that is required for ufw to work.
+
+TMPFILE=`mktemp`
+
+cat | grep -v "^#" \
+    | grep -v "^*" \
+    | grep -v "COMMIT" \
+    | sed 's/ \(- \)\?\[[0-9]\+:[0-9]\+\]//' \
+    | sed 's/^:INPUT/-P INPUT/' \
+    | sed 's/^:OUTPUT/-P INPUT/' \
+    | sed 's/^:/-N /' \
+    | grep -v " -i " \
+    | grep -v " -o " \
+    | grep -v " -m rt " \
+    | grep -v " -j RETURN" \
+    | sed 's/-m icmp6 //' \
+    | sed 's/-m tcp //' \
+    | sed 's/-m udp //' \
+    | grep -v ' -m state --state INVALID ' \
+    | sed 's/-m hl //' \
+    | sed 's/-m limit //' \
+    | sed 's/--hl-\?[a-z]* [[:graph:]]\+ //g' \
+    | sed 's/--limit-\?[a-z]* [[:graph:]]\+ //g' \
+    | sed 's/^-/\/usr\/local\/sbin\/us6tables -/' \
+    | grep '/usr/local/sbin/us6tables' \
+    > ${TMPFILE} < /dev/stdin
+
+FLUSH="1"
+
+while getopts ":n" Option
+do
+  case $Option in
+    n ) FLUSH="0";;
+    * ) ;;
+  esac
+done
+
+shift $(($OPTIND - 1))
+
+if [ "$FLUSH" = "1" ]; then
+    us6tables -F
+    us6tables -X
+fi
+
+ERROR="0"
+
+while read -r line
+do
+    if [ `echo "$line" | grep -c '/usr/local/sbin/us6tables -N'` -gt 0 ]; then
+        $line
+    else
+        $line
+        CMDERR="$?"
+        if [ "$CMSERR" != "0" ]; then
+            ERROR="$CMDERR"
+        fi
+    fi
+done < ${TMPFILE}
+
+if [ "$ERROR" = "0" ]; then
+    rm ${TMPFILE}
+fi
+
+exit $ERROR
