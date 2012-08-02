@@ -258,8 +258,10 @@ struct fwRule *getRuleDescription(void)
         rule->action = DROP;
       else if(strcmp(prgArgv[l + 1], "LOG") == 0)
         rule->action = LOG;
-      else if(strcmp(prgArgv[l + 1], "RETURN") == 0)
+      else if(strcmp(prgArgv[l + 1], "RETURN") == 0) {
         rule->action = RETURN;
+        ust_error("Target is RETURN");
+      }
       else
       {
         for(f = k = 0; k < shmFW->nChains; k++)
@@ -510,19 +512,20 @@ int cmdAppend()
   if(c->nRules < MAX_RULES_NUM)
   {
     rule = getRuleDescription();
-    if(rule != NULL)
+    
+    if((rule != NULL)&&(rule->action != RETURN))
     {
       memcpy(&c->rules[c->nRules], rule, sizeof(struct fwRule));
       c->nRules++;
       free(rule);
-    } else {
-      return 5;
+    } else if (rule->action != RETURN) {    
+        return 1;
     }
   }
   else
   {
     ust_error("No space left in memory");
-    return 5;
+    return 1;
   }
   return 0;
 }
@@ -630,7 +633,7 @@ int cmdInsert()
     return 1;
   }
 
-  rule = getRuleDescription();
+  rule = getRuleDescription();  
   if((rule != NULL)&&(rule->action != RETURN))
   {
     for(l = c->nRules - 1; l >= nR; l--) {
@@ -639,7 +642,7 @@ int cmdInsert()
     memcpy(&c->rules[nR], rule, sizeof(struct fwRule));
     c->nRules++;
     free(rule);
-  } else {
+  } else if (rule->action != RETURN) {    
     return 1;
   }
   return 0;
