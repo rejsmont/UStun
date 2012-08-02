@@ -426,7 +426,8 @@ int main(int argc, char **argv)
     daemonize();
 
   if ((fp = fopen(pidFile, "r"))) {
-    fscanf(fp, "%d\n", &pid);
+    if (! fscanf(fp, "%d\n", &pid))
+        return 1;
     fclose(fp);
   }
   args4to6.pid = pid;

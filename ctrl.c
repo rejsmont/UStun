@@ -47,7 +47,7 @@
  */
 void ctrl(void *args)
 {
-  int sockv6, tun, localIP, remoteIP, tunMode, ct, l;
+  int sockv6, localIP, remoteIP, tunMode, ct, l;
   char *ipStr, *protoStr;
   struct cList *element = NULL;
   struct conntrack *entry = NULL;
@@ -57,7 +57,7 @@ void ctrl(void *args)
   int shm_id;
 
   sockv6 = (*(struct threadArgs *)args).sockv6;
-  tun = (*(struct threadArgs *)args).tun;
+  // tun = (*(struct threadArgs *)args).tun; // Not used
   localIP = (*(struct threadArgs *)args).localIP;
   remoteIP = (*(struct threadArgs *)args).remoteIP;
   tunMode = (*(struct threadArgs *)args).tunMode;

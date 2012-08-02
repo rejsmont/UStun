@@ -190,7 +190,7 @@ int main(int argc, char **argv)
         return shmctl(shmid, IPC_RMID, 0);
       } else {
         if (fwshm.shm_nattch > 0)
-          printf("There are still %d tunnels attached\n", fwshm.shm_nattch);
+          printf("There are still %d tunnels attached\n", (int) fwshm.shm_nattch);
         else
           printf("Unable to get info aboutshared memory segment\n");
         return(-1);
