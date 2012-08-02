@@ -18,6 +18,7 @@ To use the tunnel and firewall (with UFW on Ubuntu):
 * relink /sbin/ip6tables-save to /bin/true - WARNING - this will disable ip6tables-save as ufw does not require it
 * backup after6.rules and before6.rules in /etc/ufw
 * copy after6.rules and before6.rules to /etc/ufw
+* disable ufw logging (sudo ufw logging off) - ip6tables -m limit is not supported yet
 
 NOTE: Some of the rules have slightly different syntax. See /usr/local/sbin/us6tables-restore for info on how ip6tables
 rules are rewritten. 
