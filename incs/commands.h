@@ -24,7 +24,36 @@
 #ifndef COMMANDS_H_
 #define COMMANDS_H_
 
+typedef struct { char *key; int val; } t_lustruct;
+
 #ifdef SOURCE_commands
+static t_lustruct icmp6type_lookup[] = {
+  { "destination-unreachable", 1 },
+  { "no-route", 1 },
+  { "communication-prohibited", 1 },
+  { "address-unreachable", 1 },
+  { "port-unreachable", 1 },
+  { "packet-too-big", 2 },
+  { "time-exceeded", 3 },
+  { "ttl-exceeded", 3 },
+  { "ttl-zero-during-transit", 3 },
+  { "ttl-zero-during-reassembly", 3 },
+  { "parameter-problem", 4 },
+  { "bad-header", 4 },
+  { "unknown-header-type", 4 },
+  { "unknown-option", 4 },
+  { "echo-request", 128 },
+  { "ping", 128 },
+  { "echo-reply", 129 },
+  { "pong", 129 },
+  { "router-solicitation", 133 },
+  { "router-advertisement", 134 },
+  { "neighbour-solicitation", 135 },
+  { "neighbor-solicitation", 135 },
+  { "neighbour-advertisement", 136 },
+  { "neighbor-advertisement", 136 },
+  { "redirect", 137 }
+};
 #else
 #endif
 

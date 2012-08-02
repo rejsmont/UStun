@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# This is a quick and dirty script to simulate ip6tables-restore functionality
-# that is required for ufw to work.
-
 TMPFILE=`mktemp`
 
 cat | grep -v "^#" \
@@ -10,12 +7,12 @@ cat | grep -v "^#" \
     | grep -v "COMMIT" \
     | sed 's/ \(- \)\?\[[0-9]\+:[0-9]\+\]//' \
     | sed 's/^:INPUT/-P INPUT/' \
-    | sed 's/^:OUTPUT/-P INPUT/' \
+    | sed 's/^:OUTPUT/-P OUTPUT/' \
+    | sed 's/^:FORWARD/-N FORWARD/' \
     | sed 's/^:/-N /' \
     | grep -v " -i " \
     | grep -v " -o " \
     | grep -v " -m rt " \
-    | grep -v " -j RETURN" \
     | sed 's/-m icmp6 //' \
     | sed 's/-m tcp //' \
     | sed 's/-m udp //' \
@@ -53,15 +50,12 @@ do
         $line
     else
         $line
-        CMDERR="$?"
-        if [ "$CMSERR" != "0" ]; then
-            ERROR="$CMDERR"
+        if [ "$?" != "0" ]; then
+            ERROR="$?"
         fi
     fi
 done < ${TMPFILE}
 
-if [ "$ERROR" = "0" ]; then
-    rm ${TMPFILE}
-fi
+rm ${TMPFILE}
 
 exit $ERROR

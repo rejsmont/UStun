@@ -15,17 +15,20 @@
 :ufw6-before-forward - [0:0]
 # End required lines
 
-# accept ICMP
--A ufw6-before-input -p ipv6-icmp -j ACCEPT
--A ufw6-before-output -p ipv6-icmp -j ACCEPT
-
 # quickly process packets for which we already have a connection
--A ufw6-before-input -m state --state RELATED,ESTABLISHED -j ACCEPT
--A ufw6-before-output -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A ufw6-before-input -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+-A ufw6-before-output -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
 
 # for multicast ping replies from link-local addresses (these don't have an
 # associated connection and would otherwise be marked INVALID)
--A ufw6-before-input -p ipv6-icmp -s fe80::/10 -j ACCEPT
+-A ufw6-before-input -p icmpv6 --icmpv6-type echo-reply -s fe80::/10 -j ACCEPT
+
+# ok icmp codes
+-A ufw6-before-input -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
+-A ufw6-before-input -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
+-A ufw6-before-input -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT
+-A ufw6-before-input -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT
+-A ufw6-before-input -p icmpv6 --icmpv6-type echo-request -j ACCEPT
 
 # allow dhcp client to work
 -A ufw6-before-input -p udp -s fe80::/10 --sport 547 -d fe80::/10 --dport 546 -j ACCEPT

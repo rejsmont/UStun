@@ -166,24 +166,6 @@ enum fwAction checkPacket(int pkgLength, struct in6_addr srcIP, struct in6_addr 
       logger(LOG_DEBUG, "checkPacket", "Checking against rule %s/%d", chkChain->name, l);
     rule = &chkChain->rules[l];
 
-// Has to jump to another chain? (eg: -A INPUT -j DROPIPS)
-    if(rule->extraChainNumber != -1)
-    {
-// On "--jump" the number of packets and bytes should always be updated
-      rule->nPackets++;
-      rule->nBytes += pkgLength;
-// Jumping to the selected chain
-      subRet = checkPacket(pkgLength, srcIP, dstIP, srcPort, dstPort, proto, &shmFW->chains[rule->extraChainNumber]);
-      if(subRet != NONE && subRet != LOG)
-        return subRet;
-      if(subRet == LOG)
-      {
-        logPacket(pkgLength, srcIP, dstIP, srcPort, dstPort, proto, rule->log);
-        continue;
-      }
-      if(subRet == NONE)
-        continue;
-    }
 // Checking state
     if(rule->states != STATE_NONE)
     {
@@ -265,11 +247,34 @@ enum fwAction checkPacket(int pkgLength, struct in6_addr srcIP, struct in6_addr 
 // Updating nPackets and nBytes for the rule
     rule->nPackets++;
     rule->nBytes += pkgLength;
+    
+    // Has to jump to another chain? (eg: -A INPUT -j DROPIPS)
+    if(rule->extraChainNumber != -1)
+    {
+      // Jumping to the selected chain
+      subRet = checkPacket(pkgLength, srcIP, dstIP, srcPort, dstPort, proto, &shmFW->chains[rule->extraChainNumber]);
+      if(subRet != NONE && subRet != LOG)
+        return subRet;
+      if(subRet == LOG)
+      {
+        logPacket(pkgLength, srcIP, dstIP, srcPort, dstPort, proto, rule->log);
+        continue;
+      }
+      if(subRet == NONE)
+        continue;
+    }
+    
     if(rule->action == LOG)
     {
       logPacket(pkgLength, srcIP, dstIP, srcPort, dstPort, proto, rule->log);
       continue;
     }
+    
+    if(rule->action == RETURN)
+    {
+      return NONE;
+    }
+    
     return rule->action;
   }
 

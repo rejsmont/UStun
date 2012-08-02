@@ -67,6 +67,26 @@ void ust_error(const char* format, ...) {
     fprintf( stderr, "\n" );
 }
 
+int gettypebyname(const char *key) {
+  int i;
+  for (i=0; i < (sizeof(icmp6type_lookup)/sizeof(t_lustruct)); i++) {
+      t_lustruct *icmp_type = icmp6type_lookup + i;
+      if (strcmp(icmp_type->key, key) == 0)
+          return icmp_type->val;
+  }
+  return -1;
+}
+
+char *getnamebytype(int val) {
+  int i;
+  for (i=0; i < (sizeof(icmp6type_lookup)/sizeof(t_lustruct)); i++) {
+      t_lustruct *icmp_type = icmp6type_lookup + i;
+      if (icmp_type->val == val)
+          return icmp_type->key;
+  }
+  return NULL;
+}
+
 /**
  * Get the rule description from user's given parameters
  *
@@ -80,7 +100,7 @@ struct fwRule *getRuleDescription(void)
   struct addrinfo hints, *servinfo, *p;
   struct sockaddr_in6 *ipv6;
   char addr[255], *t;
-  int l, k, f, endMatch;
+  int l, k, f, endMatch, type;
 
   rule = malloc(sizeof(struct fwRule));
   memset(rule, 0, sizeof(struct fwRule));
@@ -95,7 +115,10 @@ struct fwRule *getRuleDescription(void)
         rule->notProto = 1;
         l++;
       }
-      proto = getprotobyname(prgArgv[l + 1]);
+      if (strcmp(prgArgv[l + 1], "icmpv6") == 0)
+        proto = getprotobyname("ipv6-icmp");
+      else
+        proto = getprotobyname(prgArgv[l + 1]);
       if(proto != NULL)
         rule->proto = proto->p_proto;
       else
@@ -112,7 +135,19 @@ struct fwRule *getRuleDescription(void)
         rule->notType = 1;
         l++;
       }
-      rule->type = atoi(prgArgv[l + 1]);
+      if(isNumeric(prgArgv[l + 1]) == 1)
+        rule->type = atoi(prgArgv[l + 1]);
+      else
+      {
+        type = gettypebyname(prgArgv[l + 1]);
+        if(type != -1)
+          rule->type = type;
+        else
+        {
+          ust_error("invalid port/service `%s' specified", prgArgv[l + 1]);
+          return NULL;
+        }
+      }
       l++;
     }
     else if(strcmp(prgArgv[l], "-s") == 0 || strcmp(prgArgv[l], "--source") == 0)
@@ -258,10 +293,8 @@ struct fwRule *getRuleDescription(void)
         rule->action = DROP;
       else if(strcmp(prgArgv[l + 1], "LOG") == 0)
         rule->action = LOG;
-      else if(strcmp(prgArgv[l + 1], "RETURN") == 0) {
+      else if(strcmp(prgArgv[l + 1], "RETURN") == 0)
         rule->action = RETURN;
-        ust_error("Target RETURN is not implemented yet. This rule will be silently ignored!");
-      }
       else
       {
         for(f = k = 0; k < shmFW->nChains; k++)
@@ -513,14 +546,13 @@ int cmdAppend()
   {
     rule = getRuleDescription();
     
-    if((rule != NULL)&&(rule->action != RETURN))
+    if(rule != NULL)
     {
       memcpy(&c->rules[c->nRules], rule, sizeof(struct fwRule));
       c->nRules++;
       free(rule);
-    } else if (rule->action != RETURN) {    
-        return 1;
-    }
+    } else  
+      return 1;
   }
   else
   {
@@ -558,7 +590,7 @@ int cmdDelete()
     }
   }
 
-  l = strtol(prgArgv[paramIndex],&e,10) - 1;
+  l = strtol(prgArgv[paramIndex],&e,10) - 1;  
   if ((errno != 0 && l == -1)||(prgArgv[paramIndex] == e)) {
     rule = getRuleDescription();
     if (rule != NULL)
@@ -572,12 +604,12 @@ int cmdDelete()
       ust_error("Bad rule (does a matching rule exist in that chain?).");
       return 1;
     }
-  }
+  }  
   if (l >= c->nRules) {
     ust_error("Index of deletion too big.");
     return 1;
   }
-  if (l <= 0) {
+  if (l < 0) {
     ust_error("Invalid rule number `%d'.",l+1);
     return 1;
   }
@@ -634,7 +666,7 @@ int cmdInsert()
   }
 
   rule = getRuleDescription();  
-  if((rule != NULL)&&(rule->action != RETURN))
+  if(rule != NULL)
   {
     for(l = c->nRules - 1; l >= nR; l--) {
       memcpy(&c->rules[l + 1], &c->rules[l], sizeof(struct fwRule));
@@ -642,9 +674,8 @@ int cmdInsert()
     memcpy(&c->rules[nR], rule, sizeof(struct fwRule));
     c->nRules++;
     free(rule);
-  } else if (rule->action != RETURN) {    
+  } else  
     return 1;
-  }
   return 0;
 }
 
@@ -781,200 +812,201 @@ int cmdList()
             free(amB);
           }
         }
+        
+        proto = getProto(shmFW->chains[nR].rules[l].proto);
+        
         if(shmFW->chains[nR].rules[l].extraChainNumber != -1)
-        {
-          if(numeric)
-            printf("%-9s all    ::/0                           ::/0\n", shmFW->chains[shmFW->chains[nR].rules[l].extraChainNumber].name);
-          else
-            printf("%-9s all    anywhere                       anywhere\n", shmFW->chains[shmFW->chains[nR].rules[l].extraChainNumber].name);
-        }
+          printf("%-9s ", shmFW->chains[shmFW->chains[nR].rules[l].extraChainNumber].name);
         else
-        {
-          proto = getProto(shmFW->chains[nR].rules[l].proto);
           switch(shmFW->chains[nR].rules[l].action)
           {
-            case ACCEPT:
-              printf("ACCEPT   ");
-            break;
-            case REJECT:
-              printf("REJECT   ");
-            break;
-            case DROP:
-              printf("DROP     ");
-            break;
-            case LOG:
-              printf("LOG      ");
-            break;
-            default:
-            break;
+              case ACCEPT:
+              printf("ACCEPT    ");
+              break;
+              case REJECT:
+              printf("REJECT    ");
+              break;
+              case DROP:
+              printf("DROP      ");
+              break;
+              case LOG:
+              printf("LOG       ");
+              break;
+              case RETURN:
+              printf("RETURN    ");
+              break;
+              default:
+              break;
           }
-          if(shmFW->chains[nR].rules[l].notProto)
-            printf("!");
-          else
-            printf(" ");
-          printf("%-6s", proto);
+        if(shmFW->chains[nR].rules[l].notProto)
+          printf("!");
+        else
+          printf(" ");
+        printf("%-6s", proto);
 
-          if(shmFW->chains[nR].rules[l].notSrcAddr)
-            printf("!");
+        if(shmFW->chains[nR].rules[l].notSrcAddr)
+          printf("!");
+        else
+          printf(" ");
+        if(memcmp(&shmFW->chains[nR].rules[l].srcAddr.ip, &in6addr_any, sizeof(in6addr_any)))
+        {
+          if(numeric)
+            inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].srcAddr.ip, ip, INET6_ADDRSTRLEN);
           else
-            printf(" ");
-          if(memcmp(&shmFW->chains[nR].rules[l].srcAddr.ip, &in6addr_any, sizeof(in6addr_any)))
           {
-            if(numeric)
+            host = gethostbyaddr(&shmFW->chains[nR].rules[l].srcAddr.ip, sizeof(struct in6_addr), AF_INET6);
+            if(host != NULL)
+              strcpy(ip, host->h_name);
+            else
               inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].srcAddr.ip, ip, INET6_ADDRSTRLEN);
-            else
-            {
-              host = gethostbyaddr(&shmFW->chains[nR].rules[l].srcAddr.ip, sizeof(struct in6_addr), AF_INET6);
-              if(host != NULL)
-                strcpy(ip, host->h_name);
-              else
-                inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].srcAddr.ip, ip, INET6_ADDRSTRLEN);
-            }
-            sprintf(str, "%s/%d", ip, getIPv6Mask(shmFW->chains[nR].rules[l].srcAddr.mask));
-            printf("%-30s", str);
           }
-          else
-            printf("%-30s", (numeric == 1 ? "::/0" : "anywhere"));
-
-          if(shmFW->chains[nR].rules[l].notDstAddr)
-            printf("!");
-          else
-            printf(" ");
-          if(memcmp(&shmFW->chains[nR].rules[l].dstAddr.ip, &in6addr_any, sizeof(in6addr_any)))
-          {
-            if(numeric)
-              inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].dstAddr.ip, ip, INET6_ADDRSTRLEN);
-            else
-            {
-              host = gethostbyaddr(&shmFW->chains[nR].rules[l].dstAddr.ip, sizeof(struct in6_addr), AF_INET6);
-              if(host != NULL)
-                strcpy(ip, host->h_name);
-              else
-                inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].dstAddr.ip, ip, INET6_ADDRSTRLEN);
-            }
-            sprintf(str, "%s/%d", ip, getIPv6Mask(shmFW->chains[nR].rules[l].dstAddr.mask));
-            printf("%-30s ", str);
-          }
-          else
-            printf("%-30s", (numeric == 1 ? "::/0" : "anywhere"));
-          if((shmFW->chains[nR].rules[l].proto == PKGTYPE_ICMPv6) && (shmFW->chains[nR].rules[l].type != 0))
-          {
-            if(shmFW->chains[nR].rules[l].notType)
-              printf("!");
-            printf("ipv6-icmp type %d ", shmFW->chains[nR].rules[l].type);
-          }
-          if(shmFW->chains[nR].rules[l].states != STATE_NONE)
-          {
-            printf("state ");
-            if((shmFW->chains[nR].rules[l].states & STATE_NEW) == STATE_NEW)
-              printf("NEW");
-            if((shmFW->chains[nR].rules[l].states & STATE_ESTABLISHED) == STATE_ESTABLISHED)
-            {
-              if((shmFW->chains[nR].rules[l].states & STATE_NEW) == STATE_NEW)
-                printf(",");
-              printf("ESTABLISHED");
-            }
-            if((shmFW->chains[nR].rules[l].states & STATE_RELATED) == STATE_RELATED)
-            {
-              if(((shmFW->chains[nR].rules[l].states & STATE_NEW) == STATE_NEW) ||
-                 ((shmFW->chains[nR].rules[l].states & STATE_ESTABLISHED) == STATE_ESTABLISHED))
-                printf(",");
-              printf("RELATED");
-            }
-            printf(" ");
-          }
-          if(shmFW->chains[nR].rules[l].srcMultiPorts.nPorts != 0)
-          {
-            printf("multiport sports ");
-            if(shmFW->chains[nR].rules[l].notMultiport)
-              printf("!");
-            for(mp = 0; mp < shmFW->chains[nR].rules[l].srcMultiPorts.nPorts; mp++)
-            {
-              if(mp != 0)
-                printf(",");
-              if(numeric)
-                printf("%d", shmFW->chains[nR].rules[l].srcMultiPorts.ports[mp]);
-              else
-              {
-                serv = getservbyport(htons(shmFW->chains[nR].rules[l].srcMultiPorts.ports[mp]), proto);
-                if(serv != NULL)
-                  printf("%s", serv->s_name);
-                else
-                  printf("%d", shmFW->chains[nR].rules[l].srcMultiPorts.ports[mp]);
-              }
-            }
-            printf(" ");
-          }
-          if(shmFW->chains[nR].rules[l].dstMultiPorts.nPorts != 0)
-          {
-            printf("multiport dports ");
-            if(shmFW->chains[nR].rules[l].notMultiport)
-              printf("!");
-            for(mp = 0; mp < shmFW->chains[nR].rules[l].dstMultiPorts.nPorts; mp++)
-            {
-              if(mp != 0)
-                printf(",");
-              if(numeric)
-                printf("%d", shmFW->chains[nR].rules[l].dstMultiPorts.ports[mp]);
-              else
-              {
-                serv = getservbyport(htons(shmFW->chains[nR].rules[l].dstMultiPorts.ports[mp]), proto);
-                if(serv != NULL)
-                  printf("%s", serv->s_name);
-                else
-                  printf("%d", shmFW->chains[nR].rules[l].dstMultiPorts.ports[mp]);
-              }
-            }
-            printf(" ");
-          }
-          if(shmFW->chains[nR].rules[l].dstPort != 0)
-          {
-            if(shmFW->chains[nR].rules[l].notDstPort)
-              printf("%s dpt:!", proto);
-            else
-              printf("%s dpt:", proto);
-            if(numeric)
-              printf("%d ", shmFW->chains[nR].rules[l].dstPort);
-            else
-            {
-              serv = getservbyport(htons(shmFW->chains[nR].rules[l].dstPort), proto);
-              if(serv != NULL)
-                printf("%s", serv->s_name);
-              else
-                printf("%d", shmFW->chains[nR].rules[l].dstPort);
-            }
-          }
-          if(shmFW->chains[nR].rules[l].srcPort != 0)
-          {
-            if(shmFW->chains[nR].rules[l].notSrcPort)
-              printf("%s spt:!", proto);
-            else
-              printf("%s spt:", proto);
-            if(numeric)
-              printf("%d ", shmFW->chains[nR].rules[l].srcPort);
-            else
-            {
-              serv = getservbyport(htons(shmFW->chains[nR].rules[l].srcPort), proto);
-              if(serv != NULL)
-                printf("%s", serv->s_name);
-              else
-                printf("%d", shmFW->chains[nR].rules[l].srcPort);
-            }
-          }
-          free(proto);
-
-          if(shmFW->chains[nR].rules[l].action == LOG)
-          {
-            printf("LOG flags 0 level %d ", (shmFW->chains[nR].rules[l].log.level != 0 ? shmFW->chains[nR].rules[l].log.level : 4));
-            if(strlen(shmFW->chains[nR].rules[l].log.prefix) != 0)
-              printf("prefix `%s' ", shmFW->chains[nR].rules[l].log.prefix);
-          }
-
-          if(strlen(shmFW->chains[nR].rules[l].comment) != 0)
-            printf("/* %s */", shmFW->chains[nR].rules[l].comment);
-
-          printf("\n");
+          sprintf(str, "%s/%d", ip, getIPv6Mask(shmFW->chains[nR].rules[l].srcAddr.mask));
+          printf("%-30s", str);
         }
+        else
+          printf("%-30s", (numeric == 1 ? "::/0" : "anywhere"));
+
+        if(shmFW->chains[nR].rules[l].notDstAddr)
+          printf("!");
+        else
+          printf(" ");
+        if(memcmp(&shmFW->chains[nR].rules[l].dstAddr.ip, &in6addr_any, sizeof(in6addr_any)))
+        {
+          if(numeric)
+            inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].dstAddr.ip, ip, INET6_ADDRSTRLEN);
+          else
+          {
+            host = gethostbyaddr(&shmFW->chains[nR].rules[l].dstAddr.ip, sizeof(struct in6_addr), AF_INET6);
+            if(host != NULL)
+              strcpy(ip, host->h_name);
+            else
+              inet_ntop(AF_INET6, &shmFW->chains[nR].rules[l].dstAddr.ip, ip, INET6_ADDRSTRLEN);
+          }
+          sprintf(str, "%s/%d", ip, getIPv6Mask(shmFW->chains[nR].rules[l].dstAddr.mask));
+          printf("%-30s ", str);
+        }
+        else
+          printf("%-30s", (numeric == 1 ? "::/0" : "anywhere"));
+        if((shmFW->chains[nR].rules[l].proto == PKGTYPE_ICMPv6) && (shmFW->chains[nR].rules[l].type != 0))
+        {
+          if(shmFW->chains[nR].rules[l].notType)
+            printf("!");
+          if (numeric)
+            printf("ipv6-icmp type %d ", shmFW->chains[nR].rules[l].type);
+          else
+            printf("ipv6-icmp %s ", getnamebytype(shmFW->chains[nR].rules[l].type));
+        }
+        if(shmFW->chains[nR].rules[l].states != STATE_NONE)
+        {
+          printf("state ");
+          if((shmFW->chains[nR].rules[l].states & STATE_NEW) == STATE_NEW)
+            printf("NEW");
+          if((shmFW->chains[nR].rules[l].states & STATE_ESTABLISHED) == STATE_ESTABLISHED)
+          {
+            if((shmFW->chains[nR].rules[l].states & STATE_NEW) == STATE_NEW)
+              printf(",");
+            printf("ESTABLISHED");
+          }
+          if((shmFW->chains[nR].rules[l].states & STATE_RELATED) == STATE_RELATED)
+          {
+            if(((shmFW->chains[nR].rules[l].states & STATE_NEW) == STATE_NEW) ||
+                ((shmFW->chains[nR].rules[l].states & STATE_ESTABLISHED) == STATE_ESTABLISHED))
+              printf(",");
+            printf("RELATED");
+          }
+          printf(" ");
+        }
+        if(shmFW->chains[nR].rules[l].srcMultiPorts.nPorts != 0)
+        {
+          printf("multiport sports ");
+          if(shmFW->chains[nR].rules[l].notMultiport)
+            printf("!");
+          for(mp = 0; mp < shmFW->chains[nR].rules[l].srcMultiPorts.nPorts; mp++)
+          {
+            if(mp != 0)
+              printf(",");
+            if(numeric)
+              printf("%d", shmFW->chains[nR].rules[l].srcMultiPorts.ports[mp]);
+            else
+            {
+              serv = getservbyport(htons(shmFW->chains[nR].rules[l].srcMultiPorts.ports[mp]), proto);
+              if(serv != NULL)
+                printf("%s", serv->s_name);
+              else
+                printf("%d", shmFW->chains[nR].rules[l].srcMultiPorts.ports[mp]);
+            }
+          }
+          printf(" ");
+        }
+        if(shmFW->chains[nR].rules[l].dstMultiPorts.nPorts != 0)
+        {
+          printf("multiport dports ");
+          if(shmFW->chains[nR].rules[l].notMultiport)
+            printf("!");
+          for(mp = 0; mp < shmFW->chains[nR].rules[l].dstMultiPorts.nPorts; mp++)
+          {
+            if(mp != 0)
+              printf(",");
+            if(numeric)
+              printf("%d", shmFW->chains[nR].rules[l].dstMultiPorts.ports[mp]);
+            else
+            {
+              serv = getservbyport(htons(shmFW->chains[nR].rules[l].dstMultiPorts.ports[mp]), proto);
+              if(serv != NULL)
+                printf("%s", serv->s_name);
+              else
+                printf("%d", shmFW->chains[nR].rules[l].dstMultiPorts.ports[mp]);
+            }
+          }
+          printf(" ");
+        }
+        if(shmFW->chains[nR].rules[l].dstPort != 0)
+        {
+          if(shmFW->chains[nR].rules[l].notDstPort)
+            printf("%s dpt:!", proto);
+          else
+            printf("%s dpt:", proto);
+          if(numeric)
+            printf("%d ", shmFW->chains[nR].rules[l].dstPort);
+          else
+          {
+            serv = getservbyport(htons(shmFW->chains[nR].rules[l].dstPort), proto);
+            if(serv != NULL)
+              printf("%s", serv->s_name);
+            else
+              printf("%d", shmFW->chains[nR].rules[l].dstPort);
+          }
+        }
+        if(shmFW->chains[nR].rules[l].srcPort != 0)
+        {
+          if(shmFW->chains[nR].rules[l].notSrcPort)
+            printf("%s spt:!", proto);
+          else
+            printf("%s spt:", proto);
+          if(numeric)
+            printf("%d ", shmFW->chains[nR].rules[l].srcPort);
+          else
+          {
+            serv = getservbyport(htons(shmFW->chains[nR].rules[l].srcPort), proto);
+            if(serv != NULL)
+              printf("%s", serv->s_name);
+            else
+              printf("%d", shmFW->chains[nR].rules[l].srcPort);
+          }
+        }
+        free(proto);
+
+        if(shmFW->chains[nR].rules[l].action == LOG)
+        {
+          printf("LOG flags 0 level %d ", (shmFW->chains[nR].rules[l].log.level != 0 ? shmFW->chains[nR].rules[l].log.level : 4));
+          if(strlen(shmFW->chains[nR].rules[l].log.prefix) != 0)
+            printf("prefix `%s' ", shmFW->chains[nR].rules[l].log.prefix);
+        }
+
+        if(strlen(shmFW->chains[nR].rules[l].comment) != 0)
+          printf("/* %s */", shmFW->chains[nR].rules[l].comment);
+
+        printf("\n");
       }
       printf("\n");
     }
