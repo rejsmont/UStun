@@ -24,15 +24,15 @@ rules are rewritten.
 
 To create tunnel interface add the following to /etc/network/interfaces:
 
-iface NAME_CHANGEME inet6 static
-    address    IPv6_ADDR_CHANGEME
-    netmask    NETMASK_CHANGEME
-    pre-up     /usr/local/sbin/ustun -n NAME_CHANGEME -r REMOTE_END -l LOCAL_END -m tunnelbroker -p /run/ustun-NAME_CHANGEME.pid
-    post-up    /sbin/ip -6 addr add MORE_IPs_CHANGEME dev NAME_CHANGEME
-    pre-down   /sbin/ip -6 addr del MORE_IPs_CHANGEME dev NAME_CHANGEME
-    post-up    /sbin/ip -6 route add ::/0 dev NAME_CHANGEME
-    post-down  /bin/kill `cat /run/ustun-NAME_CHANGEME.pid` > /dev/null 2>&1 || /bin/true
-    mtu        1480
+    iface NAME_CHANGEME inet6 static
+        address    IPv6_ADDR_CHANGEME
+        netmask    NETMASK_CHANGEME
+        pre-up     /usr/local/sbin/ustun -n NAME_CHANGEME -r REMOTE_END -l LOCAL_END -m tunnelbroker -p /run/ustun-NAME_CHANGEME.pid
+        post-up    /sbin/ip -6 addr add MORE_IPs_CHANGEME dev NAME_CHANGEME
+        pre-down   /sbin/ip -6 addr del MORE_IPs_CHANGEME dev NAME_CHANGEME
+        post-up    /sbin/ip -6 route add ::/0 dev NAME_CHANGEME
+        post-down  /bin/kill `cat /run/ustun-NAME_CHANGEME.pid` > /dev/null 2>&1 || /bin/true
+        mtu        1480
 
 WARNING:
     Most OpenVZ/Virtuozzo hosts overwrite /etc/network/interfaces upon reboot.
