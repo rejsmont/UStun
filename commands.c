@@ -260,7 +260,7 @@ struct fwRule *getRuleDescription(void)
         rule->action = LOG;
       else if(strcmp(prgArgv[l + 1], "RETURN") == 0) {
         rule->action = RETURN;
-        ust_error("Target is RETURN");
+        ust_error("Target RETURN is not implemented yet. This rule will be silently ignored!");
       }
       else
       {
